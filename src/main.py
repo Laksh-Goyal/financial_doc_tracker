@@ -12,8 +12,9 @@ def main():
     config = load_config()
     api_key = config.get("RAPID_API_KEY")
     
+     
     if not api_key:
-        print("Error: RAPID_API_KEY not found in environment variables.")
+        print("Error: RAPID_API_KEY not found in environment variables. Please set it in the .env file.")
         return
 
     # Initialize API client
