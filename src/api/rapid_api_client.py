@@ -20,3 +20,23 @@ class RapidApiClient:
         response = self.conn.getresponse()
         data = response.read()
         return json.loads(data.decode("utf-8"))
+
+    def get_summary_info(self, ticker: str):
+        """
+        Fetch stock summary information for a given ticker.
+        """
+        print(f"Fetching summary info for {ticker}...")
+        self.conn.request("GET", f"/symbols/get-summary?symbols={ticker}", headers=self.headers)
+        response = self.conn.getresponse()
+        data = response.read()
+        return json.loads(data.decode("utf-8"))
+
+    def get_financial_info(self, ticker: str):
+        """
+        Fetch stock financial information for a given ticker.
+        """
+        print(f"Fetching financial info for {ticker}...")
+        self.conn.request("GET", f"/symbols/get-financials?symbols={ticker}&target_currency=USD&period_type=annual&statement_type=income-statement", headers=self.headers)
+        response = self.conn.getresponse()
+        data = response.read()
+        return json.loads(data.decode("utf-8"))

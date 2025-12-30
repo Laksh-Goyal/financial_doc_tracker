@@ -24,7 +24,7 @@ def main():
     print("Ready to fetch stock information.")
     
     # Test the client
-    ticker = "AAPL"
+    ticker = "aapl%2Ctsla%2Cnvda"
     try:
         info = client.get_profile_info(ticker)
         print(f"Profile info for {ticker}: {info}")
