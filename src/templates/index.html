@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financial Doc Tracker</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Control Center -->
+        <header class="control-center">
+            <div class="logo">
+                <h1>FinTracker</h1>
+            </div>
+            <div class="search-bar">
+                <input type="text" id="tickerInput" placeholder="Enter tickers (e.g. AAPL, TSLA)" autocomplete="off">
+                <button id="searchBtn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Dashboard -->
+        <main class="dashboard">
+            <!-- Loading State -->
+            <div id="loading" class="loading hidden">
+                <div class="spinner"></div>
+                <p>Fetching Financial Data...</p>
+            </div>
+
+            <!-- Error State -->
+            <div id="error" class="error-message hidden"></div>
+
+            <!-- Profile Cards -->
+            <section id="profile-section" class="profile-grid">
+                <!-- Cards will be injected here -->
+            </section>
+
+            <!-- Financials Table -->
+            <section id="financial-section" class="financial-container hidden">
+                <h2>Financial Comparison</h2>
+                <div class="table-wrapper">
+                    <table id="financialTable">
+                        <thead>
+                            <tr id="tableHeader">
+                                <th>Metric</th>
+                                <!-- Tickers will be injected here -->
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <!-- Data rows will be injected here -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="/static/js/main.js"></script>
+</body>
+
+</html>
