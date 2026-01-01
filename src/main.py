@@ -44,6 +44,10 @@ def main():
         # Fetch profile info
         profile_info = client.get_profile_info(ticker_string)
         
+        # Fetch financial info (client now handles multiple tickers loop)
+        financial_info = client.get_financial_info(ticker_string)
+        print(financial_info) # optional debug print
+        
         # Display formatted info
         from src.utils.formatter import format_stock_data
         print("\n" + format_stock_data(profile_info))

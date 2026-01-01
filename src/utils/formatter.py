@@ -1,8 +1,8 @@
-def format_stock_data(data: dict) -> str:
+def format_stock_data(data: list) -> str:
     """
     Format the stock profile data into a readable string with columnar layout.
     """
-    if "data" not in data or not data["data"]:
+    if not data:
         return "No data found."
 
     # Define the rows we want to show
@@ -20,9 +20,9 @@ def format_stock_data(data: dict) -> str:
     label_column = ["Attribute"] + headers
     columns.append(label_column)
 
-    for item in data["data"]:
-        attrs = item.get("attributes", {})
-        ticker = item.get("id", "N/A")
+    for attrs in data:
+        # ticker injected by client
+        ticker = attrs.get("ticker", "N/A")
         
         # extracted fields
         company_name = f"{attrs.get('companyName', 'N/A')} ({ticker})"
