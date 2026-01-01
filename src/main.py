@@ -23,13 +23,33 @@ def main():
     # Placeholder for user interaction
     print("Ready to fetch stock information.")
     
-    # Test the client
-    ticker = "aapl%2Ctsla%2Cnvda"
+    # Get user input for tickers
+    tickers = []
+    print("Enter stock tickers one by one. Press Enter without typing anything to finish.")
+    while True:
+        ticker_input = input("Enter ticker: ").strip()
+        if not ticker_input:
+            break
+        tickers.append(ticker_input)
+
+    if not tickers:
+        print("No tickers entered. Exiting.")
+        return
+
+    # Concatenate tickers with URL-encoded comma
+    ticker_string = "%2C".join(tickers)
+    print(f"Fetching info for: {ticker_string}")
+
     try:
-        info = client.get_profile_info(ticker)
-        print(f"Profile info for {ticker}: {info}")
+        # Fetch profile info
+        profile_info = client.get_profile_info(ticker_string)
+        
+        # Display formatted info
+        from src.utils.formatter import format_stock_data
+        print("\n" + format_stock_data(profile_info))
+        
     except Exception as e:
-        print(f"Failed to fetch info for {ticker}: {e}")
+        print(f"Failed to fetch info: {e}")
 
 if __name__ == "__main__":
     main()

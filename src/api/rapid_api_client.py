@@ -40,3 +40,13 @@ class RapidApiClient:
         response = self.conn.getresponse()
         data = response.read()
         return json.loads(data.decode("utf-8"))
+
+    def get_valuation_info(self, ticker: str):
+        """
+        Fetch stock valuation information for a given ticker.
+        """
+        print(f"Fetching valuation info for {ticker}...")
+        self.conn.request("GET", f"/symbols/get-valuation?symbols={ticker}", headers=self.headers)
+        response = self.conn.getresponse()
+        data = response.read()
+        return json.loads(data.decode("utf-8"))
