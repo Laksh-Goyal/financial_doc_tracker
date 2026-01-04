@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tableHeader = document.getElementById('tableHeader');
     const tableBody = document.getElementById('tableBody');
 
-    // Handle Search
+    // Handle Search - batch requests in groups of 4 tickers
     const handleSearch = async () => {
         const query = tickerInput.value.trim();
         if (!query) return;
@@ -21,14 +21,38 @@ document.addEventListener('DOMContentLoaded', () => {
         loading.classList.remove('hidden');
 
         try {
-            const response = await fetch(`/api/data?tickers=${encodeURIComponent(query)}`);
-            const result = await response.json();
-
-            if (result.status === 'success') {
-                renderDashboard(result.data);
-            } else {
-                showError(result.message || 'Failed to fetch data');
+            // Split tickers into batches of 4
+            const allTickers = query.split(',').map(t => t.trim()).filter(t => t);
+            const BATCH_SIZE = 4;
+            const batches = [];
+            for (let i = 0; i < allTickers.length; i += BATCH_SIZE) {
+                batches.push(allTickers.slice(i, i + BATCH_SIZE));
             }
+
+            // Fetch all batches in parallel
+            const batchPromises = batches.map(batch =>
+                fetch(`/api/data?tickers=${encodeURIComponent(batch.join(','))}`).then(r => r.json())
+            );
+            const results = await Promise.all(batchPromises);
+
+            // Merge all results
+            const mergedData = {
+                profile: [],
+                financials: [],
+                summary: [],
+                valuation: []
+            };
+
+            for (const result of results) {
+                if (result.status === 'success') {
+                    mergedData.profile.push(...(result.data.profile || []));
+                    mergedData.financials.push(...(result.data.financials || []));
+                    mergedData.summary.push(...(result.data.summary || []));
+                    mergedData.valuation.push(...(result.data.valuation || []));
+                }
+            }
+
+            renderDashboard(mergedData);
         } catch (err) {
             showError('Network error. Please try again.');
             console.error(err);
@@ -42,6 +66,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') handleSearch();
     });
 
+    // Auto-load default tickers on page load
+    async function loadDefaultTickers() {
+        try {
+            const response = await fetch('/api/default-tickers');
+            const result = await response.json();
+            if (result.status === 'success' && result.tickers) {
+                tickerInput.value = result.tickers;
+                handleSearch(); // Trigger the search
+            }
+        } catch (err) {
+            console.error('Failed to load default tickers:', err);
+        }
+    }
+
+    // Load defaults on page ready
+    loadDefaultTickers();
+
     function showError(msg) {
         errorDiv.textContent = msg;
         errorDiv.classList.remove('hidden');
@@ -53,9 +94,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // Initialize Modal Events
         initializeModal();
 
-        // 1. Render Profile Cards
-        if (profile && profile.length > 0) {
-            profileSection.innerHTML = profile.map(item => createCardHTML(item, summary)).join('');
+        // 1. Render Profile Cards - use financials as source of truth to ensure all tickers have cards
+        if (financials && financials.length > 0) {
+            // Create cards for ALL tickers from financials
+            profileSection.innerHTML = financials.map(finItem => {
+                // Find matching profile data if available
+                const profileItem = profile ? profile.find(p => p.ticker.toUpperCase() === finItem.ticker.toUpperCase()) : null;
+                // Merge: use profile data if available, otherwise create minimal card from ticker
+                const cardData = profileItem || { ticker: finItem.ticker, companyName: finItem.ticker };
+                return createCardHTML(cardData, summary);
+            }).join('');
 
             // Add click events to cards
             document.querySelectorAll('.card').forEach(card => {
@@ -64,18 +112,52 @@ document.addEventListener('DOMContentLoaded', () => {
                     openChartModal(ticker, financials);
                 });
             });
+
+            // Initialize hover scroll for long text
+            initializeHoverScroll();
         }
 
         // 2. Render Financial Table
         if (financials && financials.length > 0) {
             financialSection.classList.remove('hidden');
-            // ... renderTable is called here normally ...
             renderTable(financials, summary, valuation);
         }
     }
 
+    // Function to check if text is too long and enable scrolling
+    function initializeHoverScroll() {
+        // Check card titles
+        document.querySelectorAll('.card h3').forEach(h3 => {
+            const container = h3;
+            const text = h3.querySelector('.scrollable-text');
+            if (text && text.scrollWidth > container.clientWidth) {
+                h3.classList.add('is-long');
+                h3.style.setProperty('--scroll-dist', `-${text.scrollWidth - container.clientWidth}px`);
+            }
+        });
+
+        // Check meta-row (Sector, etc)
+        document.querySelectorAll('.meta-row span:last-child').forEach(span => {
+            const container = span;
+            const text = span.querySelector('.scrollable-text');
+            if (text && text.scrollWidth > container.clientWidth) {
+                text.classList.add('is-long');
+                span.style.setProperty('--scroll-dist-meta', `-${text.scrollWidth - container.clientWidth}px`);
+            }
+        });
+
+        // Check table cells
+        document.querySelectorAll('td').forEach(td => {
+            const text = td.querySelector('.scrollable-text');
+            if (text && text.scrollWidth > td.clientWidth) {
+                text.classList.add('is-long');
+                td.style.setProperty('--scroll-dist-table', `-${text.scrollWidth - td.clientWidth}px`);
+            }
+        });
+    }
+
     // --- Chart & Modal Logic ---
-    let myChart = null;
+    let charts = []; // Array to hold all 4 chart instances
     let isModalInitialized = false;
 
     function initializeModal() {
@@ -113,162 +195,172 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        modalTicker.textContent = `${ticker} - 5 Year Analysis`;
+        modalTicker.textContent = `${ticker} - 5 Year Financial Analysis`;
         modal.classList.remove("hidden");
-        // Ensure display is cleared in case inline style was set previously
         modal.style.display = "";
 
         const historicalData = extractHistoricalData(ticker, financialsList);
         if (historicalData) {
             console.log("Historical Data found:", historicalData);
-            renderChart(historicalData);
+            renderAllCharts(historicalData);
         } else {
             console.warn("No historical data found for", ticker);
-            // Optionally clear/hide chart??
         }
     }
 
     function extractHistoricalData(ticker, financialsList) {
-        // Normalize ticker
         const targetTicker = ticker.toUpperCase();
         console.log(`Extracting data for ${targetTicker}`);
         const tickerData = financialsList.find(t => t.ticker.toUpperCase() === targetTicker);
 
-        if (!tickerData) {
+        if (!tickerData || !tickerData.financials || tickerData.financials.length === 0) {
             console.warn("Ticker data not found in financials list");
             return null;
         }
 
-        // We need: Years (labels), Revenue, Net Income
-        // Find 'total_revenue' and 'net_income' rows in 'Income Statement' (usually first section)
+        // Helper to find a row by name across all sections
+        const findRow = (name) => {
+            for (const section of tickerData.financials) {
+                const row = section.rows.find(r => r.name === name);
+                if (row) return row;
+            }
+            return null;
+        };
 
-        const labels = [];
-        const revenueData = [];
-        const profitData = [];
+        // Find all needed rows
+        const rowsNeeded = {
+            total_revenue: findRow('total_revenue'),
+            cost_revenue: findRow('cost_revenue'),
+            gross_profit: findRow('gross_profit'),
+            other_operating_exp_total: findRow('other_operating_exp_total'),
+            operating_income: findRow('operating_income'),
+            ebt_incl_unusual_items: findRow('ebt_incl_unusual_items'),
+            net_income: findRow('net_income')
+        };
 
-        // Income Statement Section
-        if (!tickerData.financials || tickerData.financials.length === 0) return null;
-        const section = tickerData.financials[0];
-        if (!section) return null; // Safety check
+        // Use total_revenue to get labels (years)
+        const baseRow = rowsNeeded.total_revenue;
+        if (!baseRow) return null;
 
-        // Find header row for years (usually first row is header-like or we check row columns)
-        // Actually, rows have 'cells'. Each cell has a name (e.g. 'Sep 2024').
+        const dataPoints = [];
+        baseRow.cells.forEach((cell, index) => {
+            if (cell.name === 'TTM' || cell.value === false) return; // Skip TTM and locked cells
 
-        // Let's find the 'total_revenue' row first to get the columns
-        const revRow = section.rows.find(r => r.name === 'total_revenue');
-        const netRow = section.rows.find(r => r.name === 'net_income');
-
-        if (revRow) {
-            // Filter for actual date columns (ignore 'TTM' for history chart, or include it as last point?)
-            // User asked for "last five years". Let's assume standard columns.
-            // We want the last 5 columns excluding TTM if possible, or just the last 5 available.
-
-            // Extract all cells that look like dates (e.g. "Sep 20XX" or "Dec 20XX")
-            // reversing to have oldest to newest left-to-right
-
-            // The API often returns [Oldest ... Newest, TTM]. 
-            // Let's grab the last 5 columns BEFORE TTM.
-
-            const cells = revRow.cells;
-            // Filter out TTM for the trend line, or keep it? TTM is useful. Let's keep it as the latest point.
-            // Actually, usually charts show annual history. Let's grab last 5 Annual columns.
-
-            const dataPoints = [];
-
-            cells.forEach((cell, index) => {
-                if (cell.name === 'TTM') return; // Skip TTM for pure annual history, or keep? Let's skip to show closed years.
-
-                // Get corresponding net income
-                let netVal = 0;
-                if (netRow && netRow.cells[index]) {
-                    netVal = parseFloat(netRow.cells[index].raw_value || netRow.cells[index].value);
+            const point = { label: cell.name };
+            for (const [key, row] of Object.entries(rowsNeeded)) {
+                if (row && row.cells[index] && row.cells[index].raw_value !== undefined) {
+                    point[key] = parseFloat(row.cells[index].raw_value);
+                } else {
+                    point[key] = 0; // Default to 0 if no data
                 }
+            }
+            dataPoints.push(point);
+        });
 
-                const revVal = parseFloat(cell.raw_value || cell.value);
+        // Take last 5 years
+        const last5 = dataPoints.slice(-5);
 
-                dataPoints.push({
-                    label: cell.name,
-                    revenue: revVal,
-                    profit: netVal
-                });
-            });
-
-            // Sort by date components? Usually they are ordered.
-            // Take last 5
-            const last5 = dataPoints.slice(-5);
-
-            return {
-                labels: last5.map(d => d.label),
-                revenue: last5.map(d => d.revenue),
-                profit: last5.map(d => d.profit)
-            };
-        }
-
-        return null;
+        return {
+            labels: last5.map(d => d.label),
+            total_revenue: last5.map(d => d.total_revenue),
+            cost_revenue: last5.map(d => d.cost_revenue),
+            gross_profit: last5.map(d => d.gross_profit),
+            other_operating_exp_total: last5.map(d => d.other_operating_exp_total),
+            operating_income: last5.map(d => d.operating_income),
+            ebt_incl_unusual_items: last5.map(d => d.ebt_incl_unusual_items),
+            net_income: last5.map(d => d.net_income)
+        };
     }
 
-    function renderChart(data) {
-        const ctx = document.getElementById('financialChart').getContext('2d');
+    function renderAllCharts(data) {
+        // Destroy existing charts
+        charts.forEach(c => { if (c) c.destroy(); });
+        charts = [];
 
-        if (myChart) {
-            myChart.destroy();
-        }
+        if (!data) return;
 
-        if (!data) return; // Handle no data case
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: { color: '#e5e7eb', font: { size: 10 } }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: '#9ca3af',
+                        callback: function (value) {
+                            if (value >= 1000000000) return '$' + (value / 1000000000).toFixed(0) + 'B';
+                            if (value >= 1000000) return '$' + (value / 1000000).toFixed(0) + 'M';
+                            return '$' + value;
+                        }
+                    },
+                    grid: { color: '#374151' }
+                },
+                x: {
+                    ticks: { color: '#9ca3af', font: { size: 9 } },
+                    grid: { color: '#374151' }
+                }
+            }
+        };
 
-        myChart = new Chart(ctx, {
+        // Chart 1: Revenue, Cost, Gross Profit
+        const ctx1 = document.getElementById('chart1').getContext('2d');
+        charts.push(new Chart(ctx1, {
             type: 'line',
             data: {
                 labels: data.labels,
                 datasets: [
-                    {
-                        label: 'Total Revenue',
-                        data: data.revenue,
-                        borderColor: '#4ade80', // Green
-                        backgroundColor: 'rgba(74, 222, 128, 0.2)',
-                        borderWidth: 2,
-                        tension: 0.4,
-                        fill: true
-                    },
-                    {
-                        label: 'Net Income',
-                        data: data.profit,
-                        borderColor: '#60a5fa', // Blue
-                        backgroundColor: 'rgba(96, 165, 250, 0.2)',
-                        borderWidth: 2,
-                        tension: 0.4,
-                        fill: true
-                    }
+                    { label: 'Total Revenue', data: data.total_revenue, borderColor: '#4ade80', backgroundColor: 'rgba(74, 222, 128, 0.1)', borderWidth: 2, tension: 0.3, fill: false },
+                    { label: 'Cost of Revenue', data: data.cost_revenue, borderColor: '#f87171', backgroundColor: 'rgba(248, 113, 113, 0.1)', borderWidth: 2, tension: 0.3, fill: false },
+                    { label: 'Gross Profit', data: data.gross_profit, borderColor: '#60a5fa', backgroundColor: 'rgba(96, 165, 250, 0.1)', borderWidth: 2, tension: 0.3, fill: false }
                 ]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false, // Fit container
-                plugins: {
-                    legend: {
-                        labels: { color: '#e5e7eb' }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            color: '#9ca3af',
-                            callback: function (value) {
-                                if (value >= 1000000000) return '$' + (value / 1000000000).toFixed(1) + 'B';
-                                if (value >= 1000000) return '$' + (value / 1000000).toFixed(1) + 'M';
-                                return '$' + value;
-                            }
-                        },
-                        grid: { color: '#374151' }
-                    },
-                    x: {
-                        ticks: { color: '#9ca3af' },
-                        grid: { color: '#374151' }
-                    }
-                }
-            }
-        });
+            options: chartOptions
+        }));
+
+        // Chart 2: Operating Expenses & Operating Income
+        const ctx2 = document.getElementById('chart2').getContext('2d');
+        charts.push(new Chart(ctx2, {
+            type: 'line',
+            data: {
+                labels: data.labels,
+                datasets: [
+                    { label: 'Operating Expenses', data: data.other_operating_exp_total, borderColor: '#fb923c', backgroundColor: 'rgba(251, 146, 60, 0.1)', borderWidth: 2, tension: 0.3, fill: false },
+                    { label: 'Operating Income', data: data.operating_income, borderColor: '#a78bfa', backgroundColor: 'rgba(167, 139, 250, 0.1)', borderWidth: 2, tension: 0.3, fill: false }
+                ]
+            },
+            options: chartOptions
+        }));
+
+        // Chart 3: Earnings Before Tax (EBT)
+        const ctx3 = document.getElementById('chart3').getContext('2d');
+        charts.push(new Chart(ctx3, {
+            type: 'line',
+            data: {
+                labels: data.labels,
+                datasets: [
+                    { label: 'Earnings Before Tax', data: data.ebt_incl_unusual_items, borderColor: '#fbbf24', backgroundColor: 'rgba(251, 191, 36, 0.2)', borderWidth: 2, tension: 0.3, fill: true }
+                ]
+            },
+            options: chartOptions
+        }));
+
+        // Chart 4: Net Income
+        const ctx4 = document.getElementById('chart4').getContext('2d');
+        charts.push(new Chart(ctx4, {
+            type: 'line',
+            data: {
+                labels: data.labels,
+                datasets: [
+                    { label: 'Net Income', data: data.net_income, borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.2)', borderWidth: 2, tension: 0.3, fill: true }
+                ]
+            },
+            options: chartOptions
+        }));
     }
 
     function createCardHTML(item, summaryList) {
@@ -305,7 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="card" data-ticker="${item.ticker}">
                 <div class="card-header">
                     <div>
-                        <h3>${company}</h3>
+                        <h3><span class="scrollable-text">${company}</span></h3>
                         <span class="ticker">${item.ticker}</span>
                     </div>
                     <div class="price-container">
@@ -315,7 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="meta-info">
                     <div class="meta-row">
                         <span>Sector</span>
-                        <span>${sector}</span>
+                        <span><span class="scrollable-text">${sector}</span></span>
                     </div>
                     <div class="meta-row">
                         <span>Market Cap</span>
@@ -331,6 +423,20 @@ document.addEventListener('DOMContentLoaded', () => {
         // Clear previous headers (keep first 'Metric' th)
         while (tableHeader.children.length > 1) {
             tableHeader.removeChild(tableHeader.lastChild);
+        }
+
+        // Get the table element and set dynamic column class
+        const table = document.getElementById('financialTable');
+        const tickerCount = financialsList.length;
+
+        // Remove any existing column classes
+        table.classList.remove('cols-1', 'cols-2', 'cols-3', 'cols-4', 'scrollable');
+
+        // Add appropriate class based on ticker count
+        if (tickerCount <= 4) {
+            table.classList.add(`cols-${tickerCount}`);
+        } else {
+            table.classList.add('scrollable');
         }
 
         // Add Ticker Headers
@@ -440,7 +546,12 @@ document.addEventListener('DOMContentLoaded', () => {
             let rowHtml = `<tr><td>${metric.label}</td>`;
             financialsList.forEach(item => {
                 const val = getValue(item.ticker, metric);
-                rowHtml += `<td>${val}</td>`;
+                // Wrap Industry in scrollable-text for hover effect
+                if (metric.id === 'primaryname') {
+                    rowHtml += `<td><span class="scrollable-text">${val}</span></td>`;
+                } else {
+                    rowHtml += `<td>${val}</td>`;
+                }
             });
             rowHtml += `</tr>`;
             return rowHtml;

@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Financial Doc Tracker</title>
-    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/styles.css?v=6">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 
@@ -65,18 +65,41 @@
     </div>
     <!-- Financial Chart Modal -->
     <div id="chartModal" class="modal hidden">
-        <div class="modal-content">
+        <div class="modal-content modal-4charts">
             <span class="close-btn">&times;</span>
             <h2 id="modalTicker">Ticker Analysis</h2>
-            <div class="chart-container">
-                <canvas id="financialChart"></canvas>
+            <div class="charts-grid">
+                <div class="chart-box">
+                    <h3>Revenue & Profitability</h3>
+                    <div class="chart-container">
+                        <canvas id="chart1"></canvas>
+                    </div>
+                </div>
+                <div class="chart-box">
+                    <h3>Operating Expenses & Income</h3>
+                    <div class="chart-container">
+                        <canvas id="chart2"></canvas>
+                    </div>
+                </div>
+                <div class="chart-box">
+                    <h3>Earnings Before Tax</h3>
+                    <div class="chart-container">
+                        <canvas id="chart3"></canvas>
+                    </div>
+                </div>
+                <div class="chart-box">
+                    <h3>Net Income</h3>
+                    <div class="chart-container">
+                        <canvas id="chart4"></canvas>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/static/js/main.js?v=5"></script>
+    <script src="/static/js/main.js?v=12"></script>
 </body>
 
 </html>

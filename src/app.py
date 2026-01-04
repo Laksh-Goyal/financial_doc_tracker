@@ -30,6 +30,16 @@ def get_client():
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
+@app.get("/api/default-tickers")
+async def get_default_tickers():
+    """Return the default tickers from config file."""
+    try:
+        with open("default_tickers.txt", "r") as f:
+            tickers = f.read().strip()
+        return JSONResponse({"status": "success", "tickers": tickers})
+    except FileNotFoundError:
+        return JSONResponse({"status": "success", "tickers": ""})
+
 @app.get("/api/data")
 async def get_financial_data(tickers: str = Query(..., description="Comma-separated list of tickers")):
     try:
