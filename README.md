@@ -1,62 +1,67 @@
-# Financial Doc Tracker
+# Financial Doc Tracker 📈
 
-A modern web application to track and compare financial documents and stock data using the Seeking Alpha API.
+A high-performance, modern web application for tracking and comparing stock market data and financial documents. This project leverages the Seeking Alpha API (via RapidAPI) to provide a clean, dashboard-style interface for both fundamental analysis and visual trend tracking.
 
-## Features
-- **Dashboard UI**: Clean, dark-mode interface for tracking stocks.
-- **Multi-Ticker Search**: Fetch data for multiple companies at once (e.g., "AAPL, TSLA, MSFT").
-- **Financial Comparison**: Side-by-side table view of key financial metrics (Revenue, Net Income, etc.).
-- **Smart API Client**: Automatically handles batching and parsing of financial data.
+> [!IMPORTANT]
+> **First project done with vibe coding.** ✨
+
+## Key Features
+
+### 🏢 Dashboard & Comparison
+- **Multi-Card Dashboard**: View key profile data (Market Cap, Dividend Yield, Sector) in a sleek horizontal slider.
+- **Deep Financial Comparison**: compare across dozens of metrics (Income Statement, Margins, Valuation, etc.) with dynamic column scaling.
+- **Default Tickers**: Configurable pre-loading (via `default_tickers.txt`) to have your favorite stocks ready on boot.
+
+### 📊 Advanced Visualization
+- **Multi-Chart Modal**: Interactive 4-chart analysis dashboard including:
+    - Revenue & Profitability Trends
+    - Operating Performance
+    - Earnings Before Tax
+    - Net Income History (5 Years)
+- **Responsive Animations**: "Smart" hover-autoscrolling for long corporation and industry names ensures a perfectly aligned UI regardless of content length.
+
+### ⚙️ Engine & Integration
+- **Parallel Batch Loading**: Intelligent request manager that chunks tickers (4 max) and fetches them in parallel to maximize speed and API reliability.
+- **Unified Data Source**: Enriched profiles combining data from Financials, Summary, Valuation, and Profile endpoints.
+- **FastAPI Backend**: Robust Python backend with static file serving and template rendering.
 
 ## Project Structure
 ```
 financial_doc_tracker/
+├── default_tickers.txt        # Config for pre-loaded stocks
 ├── src/
-│   ├── app.py                 # FastAPI Application functionality
-│   ├── main.py                # Legacy CLI entry point
+│   ├── app.py                 # FastAPI Web Server
 │   ├── api/
-│   │   └── rapid_api_client.py # Core API Client
+│   │   └── rapid_api_client.py # Core API Client (Batched requests)
+│   ├── static/
+│   │   ├── css/               # Modern Dark Theme & Animations
+│   │   └── js/                # Dashboard Controller & Charting logic
 │   ├── templates/
-│   │   └── index.html         # Main Dashboard HTML
-│   └── static/
-│       ├── css/
-│       │   └── styles.css     # Dark mode styling
-│       └── js/
-│           └── main.js        # Frontend logic
-├── requirements.txt           # Dependencies
-└── .env                       # API Configuration
+│   │   └── index.html         # SPA Dashboard Template
+│   └── utils/                 # Formatting & Config Utilities
+├── .env                       # API Configuration (Secrets)
+└── requirements.txt           # Dependencies
 ```
 
 ## Setup & Installation
 
-1. **Clone the repository** (if not already done).
-2. **Set up the Environment**:
-   Ensure you have a `.env` file with your RapidAPI key:
-   ```bash
-   RAPID_API_KEY=your_api_key_here
+1. **Prerequisites**: Python 3.8+
+2. **Configuration**: Create a `.env` file from `.env.example`:
+   ```env
+   RAPID_API_KEY=your_key_here
    RAPID_API_HOST=seeking-alpha.p.rapidapi.com
    ```
-3. **Install Dependencies**:
+3. **Installation**:
    ```bash
    pip install -r requirements.txt
    ```
-
-## Running the Application
-
-### Web Dashboard (Recommended)
-Start the FastAPI server:
-```bash
-python3 -m src.app
-```
-Then open your browser to: **http://localhost:8000**
-
-### CLI Version (Legacy)
-You can still run the command-line interface:
-```bash
-python3 -m src.main
-```
+4. **Launch**:
+   ```bash
+   python3 -m src.app
+   ```
+   Access at: **http://localhost:8000**
 
 ## Technologies
-- **Backend**: Python, FastAPI, Uvicorn
-- **Frontend**: HTML5, Vanilla CSS (Dark Theme), JavaScript (ES6+)
-- **API**: RapidAPI (Seeking Alpha)
+- **Backend**: Python, FastAPI, Uvicorn (StatReload enabled)
+- **Frontend**: ES6+ JavaScript, Vanilla CSS (Modern Aesthetics), Chart.js
+- **API**: RapidAPI (Seeking Alpha Endpoint)
