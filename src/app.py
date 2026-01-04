@@ -38,13 +38,21 @@ async def get_financial_data(tickers: str = Query(..., description="Comma-separa
         profile_info = client.get_profile_info(tickers)
         
         # Fetch financial info
-        financial_info = client.get_financial_info(tickers)
+        financials_info = client.get_financial_info(tickers)
+
+        # Fetch summary info
+        summary_info = client.get_summary_info(tickers)
+
+        # Fetch valuation info
+        valuation_info = client.get_valuation_info(tickers)
         
         return JSONResponse({
             "status": "success",
             "data": {
                 "profile": profile_info,
-                "financials": financial_info
+                "financials": financials_info,
+                "summary": summary_info,
+                "valuation": valuation_info
             }
         })
     except Exception as e:
