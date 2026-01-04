@@ -2,7 +2,6 @@
 
 A high-performance, modern web application for tracking and comparing stock market data and financial documents. This project leverages the Seeking Alpha API (via RapidAPI) to provide a clean, dashboard-style interface for both fundamental analysis and visual trend tracking.
 
-> [!IMPORTANT]
 > **First project done with vibe coding.** ✨
 
 ## Key Features
